@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# This bash script uses the current working directory to create a simple
+# script to run the pyLSPProxy commands anywhere in a user's
+# workspace.
+
+##########################################################################
+
+recordcmdScript=$(pwd)/.venv/bin/lspRecord
+
+cat << CMD_SCRIPT > $HOME/.local/bin/lspRecord
+#!/bin/sh
+
+# This shell script was created by the pyLSPProxy tool
+#       './scripts/installEditablePyLSPProxyCommands'
+# script.
+
+exec $recordcmdScript \$@
+CMD_SCRIPT
+
+chmod a+x $HOME/.local/bin/lspRecord
+
+##########################################################################
+
+replaycmdScript=$(pwd)/.venv/bin/lspReplay
+
+cat << CMD_SCRIPT > $HOME/.local/bin/lspReplay
+#!/bin/sh
+
+# This shell script was created by the pyLSPProxy tool
+#       './scripts/installEditablePyLSPProxyCommands'
+# script.
+
+exec $replaycmdScript \$@
+CMD_SCRIPT
+
+chmod a+x $HOME/.local/bin/lspReplay
+
+##########################################################################
+
+echo ""
+echo "Editable lspRecord and lspReplay commands have been created"
+echo ""

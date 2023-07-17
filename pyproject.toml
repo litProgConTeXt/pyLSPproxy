@@ -1,0 +1,27 @@
+[project]
+name = "pyLSPProxy"
+version = "0.0.1"
+description = "A simple Python based Language Server Protocol Proxy which records/replays all traffic to/from a NDJson file "
+authors = [
+    {name = "Stephen Gaito", email = "stephen@perceptisys.co.uk"},
+]
+dependencies = [
+    "ndjson>=0.3.1",
+    "pyyaml>=6.0",
+]
+requires-python = ">=3.10"
+license = {text = "Apache2.0"}
+
+[project.scripts]
+lspRecord = "pylspproxy.record:cli"
+lspReplay = "pylspproxy.replay:cli"
+
+[build-system]
+requires = ["pdm-pep517>=1.0.0"]
+build-backend = "pdm.pep517.api"
+
+[tool]
+[tool.pdm]
+[tool.pdm.dev-dependencies]
+dev = [
+]
