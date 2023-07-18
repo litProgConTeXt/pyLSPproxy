@@ -6,6 +6,7 @@ authors = [
     {name = "Stephen Gaito", email = "stephen@perceptisys.co.uk"},
 ]
 dependencies = [
+    "aiofiles>=23.1.0",
     "ndjson>=0.3.1",
     "pyyaml>=6.0",
 ]
@@ -24,4 +25,7 @@ build-backend = "pdm.pep517.api"
 [tool.pdm]
 [tool.pdm.dev-dependencies]
 dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.20.3",
+    "pytest-mock>=3.10.0",
 ]
