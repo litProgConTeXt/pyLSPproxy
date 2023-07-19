@@ -24,7 +24,12 @@ class AsyncNDJson :
     Record the msgDict as a JSON value on a single line.
     """
     jsonStr = json.dumps(aMsgDict) + "\n"
+    if self.debugIO :
+      await self.debugIO.write("AsyncNDJson::record\n")
+      await self.debugIO.write(jsonStr)
+      await self.debugIO.flush()
     await self.writer.write(jsonStr)
+    await self.writer.flush()
 
   async def nextRecord(self) :
     """
@@ -35,8 +40,9 @@ class AsyncNDJson :
 
     aLine = await self.reader.readline()
     if self.debugIO :
-      self.debugIO.write(f"[{aLine}]")
-      self.debugIO.flush()
+      await self.debugIO.write("AsyncNDJson::nextRecord\n")
+      await self.debugIO.write(f"[{aLine}]")
+      await self.debugIO.flush()
     jsonDict = {}
     try :
       jsonDict = json.loads(aLine)

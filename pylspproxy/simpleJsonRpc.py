@@ -62,15 +62,15 @@ class AsyncJsonRpc :
     Returns the parsed JSON message
     """
     if self.debugIO :
-      self.debugIO.write("\n-----------------------\nReceived:\n")
-      self.debugIO.flush()
+      await self.debugIO.write("\nAsyncJsonRpc::rawReceive-----------------------\nReceived:\n")
+      await self.debugIO.flush()
     msgDict = {}
     headers = {}
     async for aLine in self.reader :
       aLine = aLine.strip()
       if self.debugIO :
-        self.debugIO.write(f"aLine: ({len(aLine)})[{aLine}] <{type(aLine)}>\n")
-        self.debugIO.flush()
+        await self.debugIO.write(f"aLine: ({len(aLine)})[{aLine}] <{type(aLine)}>\n")
+        await self.debugIO.flush()
       if len(aLine) < 1 : break
       parsedHeader = self.headerRegexp.match(aLine.decode())
       if parsedHeader :
@@ -78,21 +78,21 @@ class AsyncJsonRpc :
         if headerKey :
           headers[headerKey] = parsedHeader.group(2).strip()
     if self.debugIO : 
-      self.debugIO.write("headers:\n")
-      self.debugIO.write(yaml.dump(headers))
-      self.debugIO.write("\n")
-      self.debugIO.flush()
+      await self.debugIO.write("headers:\n")
+      await self.debugIO.write(yaml.dump(headers))
+      await self.debugIO.write("\n")
+      await self.debugIO.flush()
     contentLen = 0
     if 'Content-Length' in headers : 
       contentLen = int(headers['Content-Length'])
       if self.debugIO :
-        self.debugIO.write(f"contentLen = {contentLen}\n")
-        self.debugIO.flush()
+        await self.debugIO.write(f"contentLen = {contentLen}\n")
+        await self.debugIO.flush()
     if contentLen : 
       jsonData = await self.reader.read(n=contentLen)
       if self.debugIO : 
-        self.debugIO.write(f"jsonData: [{jsonData}]\n")
-        self.debugIO.flush()
+        await self.debugIO.write(f"jsonData: [{jsonData}]\n")
+        await self.debugIO.flush()
       try :
         if jsonData : msgDict = json.loads(jsonData)
       except Exception as err :
@@ -102,11 +102,11 @@ class AsyncJsonRpc :
           'jsonrpc' : "2.0"
         }
       if self.debugIO :
-        self.debugIO.write("\n-simple-json-rpc-----------------------------\n")
-        self.debugIO.write("json dict:\n")
-        self.debugIO.write(yaml.dump(msgDict))
-        self.debugIO.write("\n------------------------------\n\n")
-        self.debugIO.flush()
+        await self.debugIO.write("\n-simple-json-rpc-----------------------------\n")
+        await self.debugIO.write("json dict:\n")
+        await self.debugIO.write(yaml.dump(msgDict))
+        await self.debugIO.write("\n------------------------------\n\n")
+        await self.debugIO.flush()
     return msgDict
 
   async def receive(self) :
@@ -137,11 +137,11 @@ class AsyncJsonRpc :
 
     # return JSON-RPC payload
     if self.debugIO : 
-      self.debugIO.write("\n-simple-json-rpc-----------------------------\n")
-      self.debugIO.write(f"method: {msgDict['method']}\n")
-      self.debugIO.write(f"id: {msgDict['id']}\n")
-      self.debugIO.write("params:\n")
-      self.debugIO.write(yaml.dump(msgDict['params']))
+      await self.debugIO.write("\n-simple-json-rpc-----------------------------\n")
+      await self.debugIO.write(f"method: {msgDict['method']}\n")
+      await self.debugIO.write(f"id: {msgDict['id']}\n")
+      await self.debugIO.write("params:\n")
+      await self.debugIO.write(yaml.dump(msgDict['params']))
     return (msgDict['method'], msgDict['params'], msgDict['id'])
 
   __doc__+="""
@@ -159,14 +159,14 @@ class AsyncJsonRpc :
     aDict['jsonrpc'] = "2.0"
     if id : aDict['id'] == id
     if self.debugIO :
-      self.debugIO.write("\n-----------------------\nSend:\n")
-      self.debugIO.write(yaml.dump(aDict))
-      self.debugIO.write("\n")
-      self.debugIO.flush()
+      await self.debugIO.write("\n-----------------------\nSend:\n")
+      await self.debugIO.write(yaml.dump(aDict))
+      await self.debugIO.write("\n")
+      await self.debugIO.flush()
     jsonStr = json.dumps(aDict)
     if self.debugIO :
-      self.debugIO.write(f"data: [{jsonStr}]\n")
-      self.debugIO.flush()
+      await self.debugIO.write(f"data: [{jsonStr}]\n")
+      await self.debugIO.flush()
     dataStr = f"Content-Length: {len(jsonStr)}{self.crlf}{self.crlf}{jsonStr}"
     self.writer.write(dataStr.encode())
     await self.writer.drain()

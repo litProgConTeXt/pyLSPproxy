@@ -21,6 +21,7 @@ The LSP record tool, works with four distinct channels:
 import aiofiles
 import argparse
 import asyncio
+import json
 import sys
 import yaml
 
@@ -34,23 +35,32 @@ def parseCli() :
     description="LSP recording client<->server proxy",
   )
   parser.add_argument('-r', '--record', help="The path to the NDJson record file")
-  #parser.add_argument('-l', '--log',    help="The path to the process log file")
+  parser.add_argument('-d', '--debug',  help="The path to the process debugIO file")
   parser.add_argument('command', nargs=argparse.REMAINDER,
     help="All remaining arguments will be treated as a command to be run"
   )
   return vars(parser.parse_args())
 
 async def runRecorder(cliArgs) :
-  print(yaml.dump(cliArgs))
-
   # connect to the stdio
   clientReader, clientWriter = await asyncWrapStdinStdout()
 
+  # open the debugIO file
+  debugIO      = None
+  if cliArgs['debug'] :
+    debugIO    = await aiofiles.open("/tmp/lspRecord.debugIO", "w")
+
   # open the ndjson record file
-  ndjsonReader = await aiofiles.open('/dev/null',       mode='r'),
+  ndjsonReader = await aiofiles.open('/dev/null',       mode='r')
   ndjsonWriter = await aiofiles.open(cliArgs['record'], mode='w')
+  ndJson       = AsyncNDJson(ndjsonReader, ndjsonWriter, debugIO)    
 
   # start the server
+  cmdJson = { "method" : "cmdLine", "params": " ".join(cliArgs['command']) }
+  if debugIO :
+    await debugIO.write(json.dumps(cmdJson))
+    await debugIO.flush()
+  await ndJson.record(cmdJson)
   proc = await asyncio.create_subprocess_exec(
     *cliArgs['command'],
     stdin=asyncio.subprocess.PIPE,
@@ -62,19 +72,22 @@ async def runRecorder(cliArgs) :
   serverWriter = proc.stdin
 
   # connect
-  c2sRpc = AsyncJsonRpc(clientReader, serverWriter)
-  s2cRpc = AsyncJsonRpc(serverReader, clientWriter)
-  ndJson = AsyncNDJson(ndjsonReader, ndjsonWriter)    
+  c2sRpc = AsyncJsonRpc(clientReader, serverWriter, debugIO)
+  s2cRpc = AsyncJsonRpc(serverReader, clientWriter, debugIO)
 
   # run
   doneEvent = asyncio.Event()
 
   async with asyncio.TaskGroup() as tg :
-    tg.create_task(client2server(doneEvent, c2sRpc, ndJson))
-    tg.create_task(server2client(doneEvent, s2cRpc, ndJson))
+    tg.create_task(client2server(doneEvent, c2sRpc, ndJson, proc))
+    tg.create_task(server2client(doneEvent, s2cRpc, ndJson, proc))
 
   await ndjsonReader.close()
   await ndjsonWriter.close()
+
+  if debugIO : await debugIO.close()
+
+  return await proc.wait()
 
 def cli() :
   """
@@ -92,4 +105,4 @@ def cli() :
     print("... there is nothing to do!")
     sys.exit(-1)
 
-  asyncio.run(runRecorder(cliArgs))
+  return asyncio.run(runRecorder(cliArgs))
