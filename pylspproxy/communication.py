@@ -16,28 +16,34 @@ async def client2server(done, rpc, ndjson, proc) :
   """ Asynchronously capture all LSP JSON-RPC messages from the client to the
   server. """
 
-  while not done.is_set() :
-    msgDict = await rpc.rawReceive()
-    if rpc.reader.at_eof() : done.set()
-    if proc.returncode is not None : done.set()
-    await ndjson.record(msgDict)
-    await rpc.sendDict(msgDict)
+  try :
+    while not done.is_set() :
+      msgDict = await rpc.rawReceive()
+      if rpc.reader.at_eof() : done.set()
+      if proc.returncode is not None : done.set()
+      await ndjson.record(msgDict)
+      await rpc.sendDict(msgDict)
+  finally : 
+    pass
 
 async def server2client(done, rpc, ndjson, proc) :
   """ Asynchronously capture all LSP JSON-RPC messages from the server to the
   client. """
 
-  while not done.is_set() :
-    msgDict = await rpc.rawReceive()
-    if rpc.reader.at_eof() : done.set()
-    if proc.returncode is not None : done.set()
-    if 'jsonrpc' in msgDict :
-      await ndjson.record(msgDict)
-      await rpc.sendDict(msgDict)
-    elif 'params' in msgDict :
-      pass
-    else :
-      done.set()
+  try :
+    while not done.is_set() :
+      msgDict = await rpc.rawReceive()
+      if rpc.reader.at_eof() : done.set()
+      if proc.returncode is not None : done.set()
+      if 'jsonrpc' in msgDict :
+        await ndjson.record(msgDict)
+        await rpc.sendDict(msgDict)
+      elif 'params' in msgDict :
+        pass
+      else :
+        done.set()
+  finally :
+    pass
 
 async def record2server(done, rpc, ndjsonReplay, ndjsonRecord, proc) :
   """
@@ -45,16 +51,19 @@ async def record2server(done, rpc, ndjsonReplay, ndjsonRecord, proc) :
   to the server.
   """
 
-  while not done.is_set() :
-    msgDict = await ndjsonReplay.nextRecord()
-    if proc.returncode is not None : done.set()
-    if 'jsonrpc' in msgDict :
-      await ndjsonRecord.record(msgDict)
-      await rpc.sendDict(msgDict)
-    elif 'params' in msgDict :
-      pass
-    else :
-      done.set()
+  try :
+    while not done.is_set() :
+      msgDict = await ndjsonReplay.nextRecord()
+      if proc.returncode is not None : done.set()
+      if 'jsonrpc' in msgDict :
+        await ndjsonRecord.record(msgDict)
+        await rpc.sendDict(msgDict)
+      elif 'params' in msgDict :
+        pass
+      else :
+        done.set()
+  finally :
+    pass
 
 async def server2record(done, rpc, ndjson, proc) :
   """
@@ -62,9 +71,20 @@ async def server2record(done, rpc, ndjson, proc) :
   NDJson messages from the record file.
   """
 
-  while not done.is_set() :
-    msgDict = await rpc.rawReceive()
-    if rpc.reader.at_eof() : done.set()
-    if proc.returncode is not None : done.set()
-    await ndjson.record(msgDict)
+  try :
+    while not done.is_set() :
+      msgDict = await rpc.rawReceive()
+      if rpc.reader.at_eof() : done.set()
+      if proc.returncode is not None : done.set()
+      await ndjson.record(msgDict)
+  finally :
+    pass
 
+async def processWatcher(done, proc, taskArray) :
+
+  try : 
+    await proc.wait()
+    for aTask in taskArray :
+      aTask.cancel("Server process terminated")
+  finally : 
+    pass

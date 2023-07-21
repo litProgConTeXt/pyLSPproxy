@@ -22,12 +22,15 @@ import aiofiles
 import argparse
 import asyncio
 import json
+import logging
 import sys
 import yaml
 
+logging.basicConfig(filename='/tmp/lspOut/lspRecord.log')
+
 from pylspproxy.simpleJsonRpc import AsyncJsonRpc, asyncWrapStdinStdout
 from pylspproxy.simpleNDJson  import AsyncNDJson
-from pylspproxy.communication import client2server, server2client
+from pylspproxy.communication import client2server, server2client, processWatcher
 
 def parseCli() :
   parser = argparse.ArgumentParser(
@@ -79,8 +82,9 @@ async def runRecorder(cliArgs) :
   doneEvent = asyncio.Event()
 
   async with asyncio.TaskGroup() as tg :
-    tg.create_task(client2server(doneEvent, c2sRpc, ndJson, proc))
-    tg.create_task(server2client(doneEvent, s2cRpc, ndJson, proc))
+    c2sTask = tg.create_task(client2server(doneEvent, c2sRpc, ndJson, proc))
+    s2cTask = tg.create_task(server2client(doneEvent, s2cRpc, ndJson, proc))
+    tg.create_task(processWatcher(doneEvent, proc, [c2sTask, s2cTask]))
 
   await ndjsonReader.close()
   await ndjsonWriter.close()
@@ -93,16 +97,24 @@ def cli() :
   """
   Main entry point for the `lspRecord` tool.
   """
-  cliArgs = parseCli()
+  
+  result = 1
 
-  if not cliArgs['record'] :
-    print("No record file has been provided...")
-    print("... there is nothing to do!")
-    sys.exit(-1)
+  try : 
+    cliArgs = parseCli()
 
-  if not cliArgs['command'] :
-    print("No command has been provided...")
-    print("... there is nothing to do!")
-    sys.exit(-1)
+    if not cliArgs['record'] :
+      print("No record file has been provided...")
+      print("... there is nothing to do!")
+      sys.exit(-1)
 
-  return asyncio.run(runRecorder(cliArgs))
+    if not cliArgs['command'] :
+      print("No command has been provided...")
+      print("... there is nothing to do!")
+      sys.exit(-1)
+
+    result = asyncio.run(runRecorder(cliArgs))
+  except Exception as err :
+    logging.error(err)
+  
+  return result
