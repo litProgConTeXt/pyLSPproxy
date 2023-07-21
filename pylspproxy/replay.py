@@ -14,8 +14,16 @@ import aiofiles
 import argparse
 import asyncio
 import json
+import logging
 import sys
 import yaml
+
+logging.basicConfig(
+  filename='/tmp/lspOut/lspReplay.log',
+  level=logging.DEBUG
+)
+
+logging.info("Starting lspReplayer")
 
 from pylspproxy.simpleJsonRpc import AsyncJsonRpc, asyncWrapStdinStdout
 from pylspproxy.simpleNDJson  import AsyncNDJson
@@ -74,8 +82,18 @@ async def runReplayer(cliArgs) :
   doneEvent = asyncio.Event()
 
   async with asyncio.TaskGroup() as tg :
-    tg.create_task(record2server(doneEvent, r2sRpc, ndJsonReplay, ndJsonRecord, proc))
-    tg.create_task(server2record(doneEvent, s2rRpc, ndJsonRecord, proc))
+    r2sTask = tg.create_task(
+      record2server(doneEvent, r2sRpc, ndJsonReplay, ndJsonRecord, proc),
+      name="record2server"
+    )
+    s2rTask = tg.create_task(
+      server2record(doneEvent, s2rRpc, ndJsonRecord, proc),
+      name="server2record"
+    )
+    tg.create_task(
+      processWatcher(doneEvent, proc, [r2sTask, s2rTask]),
+      name="processWatcher"
+    )
 
   await ndjsonReplayReader.close()
   await ndjsonReplayWriter.close()
@@ -93,20 +111,37 @@ def cli() :
   """
   cliArgs = parseCli()
 
-  if not cliArgs['replay'] :
-    print("No replay file has been provided...")
-    print("... there is nothing to do!")
-    sys.exit(-1)
+  result = 1
 
-  if not cliArgs['record'] :
-    print("No record file has been provided...")
-    print("... there is nothing to do!")
-    sys.exit(-1)
+  try : 
+    if not cliArgs['replay'] :
+      print("No replay file has been provided...")
+      print("... there is nothing to do!")
+      sys.exit(-1)
 
-  if not cliArgs['command'] :
-    print("No command has been provided...")
-    print("... there is nothing to do!")
-    sys.exit(-1)
+    if not cliArgs['record'] :
+      print("No record file has been provided...")
+      print("... there is nothing to do!")
+      sys.exit(-1)
 
-  return asyncio.run(runReplayer(cliArgs))
+    if not cliArgs['command'] :
+      print("No command has been provided...")
+      print("... there is nothing to do!")
+      sys.exit(-1)
+
+    result = asyncio.run(runReplayer(cliArgs))
+
+  except ExceptionGroup as exGrp :
+    logging.error("Top level ExceptionGroup handler")
+    for anException in exGrp.exceptions :
+      logging.error(anException)
+      logging.error(traceback.format_exc())
+  except Exception as err :
+    logging.error("Top level Exception handler")
+    logging.error(err)
+    logging.error(traceback.format_exc())
+  
+logging.info("Finished lspReplayer")
+
+  return result
 

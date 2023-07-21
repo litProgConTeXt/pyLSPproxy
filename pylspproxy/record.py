@@ -24,9 +24,15 @@ import asyncio
 import json
 import logging
 import sys
+import traceback
 import yaml
 
-logging.basicConfig(filename='/tmp/lspOut/lspRecord.log')
+logging.basicConfig(
+  filename='/tmp/lspOut/lspRecord.log',
+  level=logging.DEBUG
+)
+
+logging.info("Starting lspRecorder")
 
 from pylspproxy.simpleJsonRpc import AsyncJsonRpc, asyncWrapStdinStdout
 from pylspproxy.simpleNDJson  import AsyncNDJson
@@ -82,9 +88,18 @@ async def runRecorder(cliArgs) :
   doneEvent = asyncio.Event()
 
   async with asyncio.TaskGroup() as tg :
-    c2sTask = tg.create_task(client2server(doneEvent, c2sRpc, ndJson, proc))
-    s2cTask = tg.create_task(server2client(doneEvent, s2cRpc, ndJson, proc))
-    tg.create_task(processWatcher(doneEvent, proc, [c2sTask, s2cTask]))
+    c2sTask = tg.create_task(
+      client2server(doneEvent, c2sRpc, ndJson),
+      name="client2server"
+    )
+    s2cTask = tg.create_task(
+      server2client(doneEvent, s2cRpc, ndJson),
+      name="server2client"
+    )
+    tg.create_task(
+      processWatcher(doneEvent, proc, [c2sTask, s2cTask]),
+      name="processWatcher"
+    )
 
   await ndjsonReader.close()
   await ndjsonWriter.close()
@@ -114,7 +129,16 @@ def cli() :
       sys.exit(-1)
 
     result = asyncio.run(runRecorder(cliArgs))
+  except ExceptionGroup as exGrp :
+    logging.error("Top level ExceptionGroup handler")
+    for anException in exGrp.exceptions :
+      logging.error(anException)
+      logging.error(traceback.format_exc())
   except Exception as err :
+    logging.error("Top level Exception handler")
     logging.error(err)
-  
+    logging.error(traceback.format_exc())
+
+  logging.info("Finished lspRecorder")
+
   return result

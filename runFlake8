@@ -1,0 +1,5 @@
+#!/bin/sh
+
+reset
+
+flake8 --extend-ignore E111,E203,E272,E302,E114,E221 pylspproxy/*.py
